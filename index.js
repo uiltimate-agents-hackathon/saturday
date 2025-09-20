@@ -14,6 +14,9 @@ var registeredRemotes = [];
 /** @type {HTMLElement} */
 var interactiveContainer;
 
+/** @type {BroadcastChannel} */
+var hubsChannel;
+
 /** @param {MessageEvent} event */
 async function handleMessage(event) {
   const type = event.data?.type;
@@ -97,6 +100,8 @@ function handlePing(event) {
 
     registeredRemotes.push(newReg);
     console.info('PING>> new registration ', newReg);
+
+    // TODO: broadcast to all hub instances
 
     return { type: 'pong', frameId: newReg.frameId };
   }
@@ -204,6 +209,40 @@ function initInteractivity() {
   document.body.appendChild(interactiveContainer);
 }
 
-window.addEventListener('message', handleMessage);
+function initBroadcastChannel() {
+  hubsChannel = new BroadcastChannel("my_channel");
+  hubsChannel.addEventListener("message", handleBroadcastMessage);
+
+  /** @param {MessageEvent} event */
+  function handleBroadcastMessage(event) {
+    if (typeof event.data?.type !== 'string') {
+      console.info('BROADCAST>> unknown message', event);
+      return;
+    }
+
+    switch (event.data?.type) {
+      case 'hub-ping':
+        return handleHubPing(event);
+
+      case 'hub-start':
+        return handleHubStart(event);
+
+      case 'hub-list-services':
+        return handleHubListServices(event);
+    }
+  }
+
+  /** @param {MessageEvent} event */
+  function handleHubPing(event) {
+  }
+
+  /** @param {MessageEvent} event */
+  function handleHubStart(event) {
+  }
+
+  /** @param {MessageEvent} event */
+  function handleHubListServices(event) {
+  }
+}
 updateBookmarkletLink();
 initInteractivity();
