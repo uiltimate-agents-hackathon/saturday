@@ -1,1 +1,27 @@
-ANOTHER BIG PAGE.
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ultimate AI Hackathon London - Saturday!
+  </title>
+</head>
+<body>
+  <h1>Ultimate AI Hackathon London - Saturday!</h1>
+
+  posted messages will appear in an alert box
+  <div id="messsageLog">
+
+  </div>
+<script>
+window.addEventListener('message', (event) => {
+  const msg = document.createElement('div');
+  msg.style.cssText = 'border: 1px solid black; border-radius: 0.5em; margin: 5px; padding: 5px;';
+  msg.textContent = JSON.stringify(event.data);
+  document.getElementById('messsageLog').appendChild(msg);
+
+  alert('Received message:\n\n' + JSON.stringify(event.data));
+});
+</script>
+</body>
+</html>
