@@ -411,5 +411,6 @@ function initBroadcastChannel() {
 
 updateBookmarkletLink();
 initInteractivity();
+initBroadcastChannel();
 
 window.addEventListener('message', handleMessage);
