@@ -78,6 +78,11 @@ function handlePing(event) {
   } else {
     const newListEntry = document.createElement('div');
     newListEntry.className = 'listEntry';
+
+    if (!registeredRemotes.length) {
+      interactiveContainer.textContent = '';
+    }
+
     interactiveContainer.appendChild(newListEntry);
 
     const newReg = {
