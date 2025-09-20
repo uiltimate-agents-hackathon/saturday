@@ -88,6 +88,8 @@ async function bookmarklet(uaih = 'https://uaih.london/') {
       return;
     }
 
+    queueReplyCheck();
+
     return {
       handleChatServiceMessage
     };
@@ -116,7 +118,7 @@ async function bookmarklet(uaih = 'https://uaih.london/') {
       
       await waitTillSettled();
 
-      const replyElement = /** @type {HTMLElement} */([...document.querySelectorAll('message-content')].pop());
+      const replyElement = getLatestReplyElement();
       if (replyElement) {
         replyElement.style.zoom = '0.2';
         replyElement.style.transform = 'scaleX(2)';
@@ -138,6 +140,59 @@ async function bookmarklet(uaih = 'https://uaih.london/') {
         /** @type {HTMLButtonElement} */(stopButton).click();
         }
       }
+    }
+
+    /** @type {*} */
+    var replyCheckTimeout;
+
+    function queueReplyCheck() {
+      clearTimeout(replyCheckTimeout);
+      replyCheckTimeout = setTimeout(async () => {
+        await keepWatchingReplies();
+        queueReplyCheck();
+      }, 1000);
+    }
+
+    async function keepWatchingReplies() {
+      const replyElement = getLatestReplyElement();
+      if (!replyElement?.textContent) return;
+
+      const replyText = replyElement.textContent.trim();
+      const cdataStart = replyText.indexOf('<![CDATA[');
+      const cdataEnd = replyText.lastIndexOf(']]>');
+      if (cdataStart < 0 && cdataEnd < cdataStart) return;
+
+      const cdataEntry = replyText.substring(cdataStart + 9, cdataEnd).trim();
+
+      const targetCount = registeredRemotes.length + registeredHubRemotes.length;
+      const pickTargetIndex = Math.floor(Math.random() * targetCount);
+      if (pickTargetIndex < registeredRemotes.length) {
+        const target = registeredRemotes[pickTargetIndex];
+        target.source.postMessage({
+          type: 'call-service',
+          frameId,
+          requestId: 'reply-' + Math.random().toString(16).slice(2),
+          targetFrameId: target.frameId,
+          service: 'chat',
+          prompt: cdataEntry
+        }, { targetOrigin: target.origin });
+      } else {
+        const target = registeredHubRemotes[pickTargetIndex - registeredRemotes.length];
+        hubsChannel.postMessage({
+          type: 'hub-call-service',
+          hubId: target.hubId,
+          frameId,
+          requestId: 'reply-' + Math.random().toString(16).slice(2),
+          targetFrameId: target.frameId,
+          service: 'chat',
+          prompt: cdataEntry
+        });
+      }
+    }
+
+    function getLatestReplyElement() {
+      const replyElement = /** @type {HTMLElement} */([...document.querySelectorAll('message-content')].pop());
+      return replyElement;
     }
 
     /**

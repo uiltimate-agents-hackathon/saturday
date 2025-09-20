@@ -112,7 +112,7 @@ function handlePing(event) {
       listEntry: newListEntry
     };
 
-    newListEntry.textContent = newReg.origin + ' #' + newReg.frameId;
+    newListEntry.textContent = newReg.origin + ' #' + newReg.frameId + ' ' + newReg.services;
 
     registeredRemotes.push(newReg);
     console.info('PING>> new registration ', newReg);
@@ -340,7 +340,7 @@ function initBroadcastChannel() {
           listEntry: newListEntry
         };
 
-        newListEntry.textContent = newHubReg.origin + ' #' + newHubReg.frameId + ' (hub)';
+        newListEntry.textContent = newHubReg.origin + ' #' + newHubReg.frameId + ' (hub) ' + services;
 
         registeredHubRemotes.push(newHubReg);
         console.info('HUB-PING>> new registration ', newHubReg, services);
