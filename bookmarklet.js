@@ -47,7 +47,7 @@ async function bookmarklet(uaih = 'https://uaih.london/') {
           {
             ...event.data,
             type: 'chat-service-reply',
-            ...reply
+            ...(typeof reply === 'string' ? { reply } : reply)
           },
           { targetOrigin: event.origin }
         );

@@ -350,11 +350,17 @@ function initBroadcastChannel() {
 
   /** @param {MessageEvent} event */
   function handleHubStart(event) {
-    return registeredRemotes.map(r => ({
-      ...r,
+    const pingShapedReply = {
       hubId,
-      source: undefined
-    }));
+      type: 'hub-ping',
+      origin: location.origin,
+      entries: registeredRemotes.map(r => ({
+        frameId: r.frameId,
+        services: r.services
+      }))
+    };
+
+    hubsChannel.postMessage(pingShapedReply);
   }
 
   /** @param {*} _ */
