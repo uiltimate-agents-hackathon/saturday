@@ -26,24 +26,12 @@ async function handleMessage(event) {
     return;
   }
 
-  if (type === 'ping')
-    return handlePing(checkedEvent);
-
-  const { frameId, requestId } = event.data;
-  if (!frameId || !requestId) {
-    console.info('MESSAGE>> frameId, requestId expected', { frameId, requestId }, event);
-    return;
-  }
-
-  const registeredEntry = registeredRemotes.find(r => r.source === checkedEvent.source);
-  if (!registeredEntry) {
-    console.info('MESSAGE>> message.source is not registered', event);
-    return;
-  }
-
   const response = await (async () => {
     try {
       switch (type) {
+        case 'ping':
+          return handlePing(checkedEvent);
+
         case 'list-services':
           return handleListServices();
 
@@ -62,11 +50,13 @@ async function handleMessage(event) {
     return;
   }
 
-  registeredEntry.source.postMessage({
-    type: 'return-' + type,
-    requestId,
-    response
-  }, { targetOrigin: registeredEntry.origin });
+  const registeredEntry = registeredRemotes.find(r => r.source === checkedEvent.source);
+  if (!registeredEntry) {
+    console.info('MESSAGE>> message.source is not registered', event);
+    return;
+  }
+
+  registeredEntry.source.postMessage(response, { targetOrigin: registeredEntry.origin });
 }
 
 /**
