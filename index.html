@@ -1,10 +1,25 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Ultimate AI Hackathon London - Saturday!
-  </title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ultimate AI Hackathon London - Saturday!</title>
+
+<style>
+#interactiveContainer {
+  border: 1px solid #ccc;
+  padding: 0.5em;
+  margin-top: 1em;
+  border-radius: 0.25em;
+  box-shadow: inset 1px 1px 3px #0000007a;
+
+  .listEntry {
+    margin: 0.2em 0;
+    padding: 0.2em;
+    border-bottom: 1px solid #eee;
+  }
+}
+</style>
 </head>
 <body>
   <h1>Ultimate AI Hackathon London - Saturday!</h1>
@@ -13,27 +28,7 @@
     <a id="bookmarkletLink">&lt; bookmarklet &gt;</a>
   </blockquote>
 
-  posted messages will appear in an alert box
-  <div id="messsageLog">
-
-  </div>
-<script src="bookmarklet.js"></script>
-<script>
-[document.querySelector('#bookmarkletLink')].forEach(el => {
-  el.href = 'javascript:(bookmarklet=' + bookmarklet + ', console.log("bookmarklet " + bookmarklet()))';
-});
-window.addEventListener('message', (event) => {
-  if (event.data.type === 'ping') {
-    event.source.postMessage({ type: 'pong', text: 'pong!' }, '*');
-    return;
-  }
-
-  const msg = document.createElement('div');
-  msg.style.cssText = 'border: 1px solid black; border-radius: 0.5em; margin: 5px; padding: 5px;';
-  msg.textContent = JSON.stringify(event.data);
-  document.getElementById('messsageLog').appendChild(msg);
-
-});
-</script>
+  <script src="bookmarklet.js"></script>
+  <script src="index.js"></script>
 </body>
 </html>
