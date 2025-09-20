@@ -11,11 +11,25 @@
  */
 var registeredRemotes = [];
 
+/**
+ * @type {{
+ *  hubId: string,
+ *  frameId: string,
+ *  origin: string,
+ *  services?: string[],
+ *  listEntry: HTMLElement
+ * }[]}
+ */
+var registeredHubRemotes = [];
+
+
 /** @type {HTMLElement} */
 var interactiveContainer;
 
 /** @type {BroadcastChannel} */
 var hubsChannel;
+/** @type {string} */
+var hubId;
 
 /** @param {MessageEvent} event */
 async function handleMessage(event) {
@@ -59,7 +73,9 @@ async function handleMessage(event) {
     return;
   }
 
-  registeredEntry.source.postMessage(response, { targetOrigin: registeredEntry.origin });
+  registeredEntry.source.postMessage(
+    response,
+    { targetOrigin: registeredEntry.origin });
 }
 
 /**
@@ -82,7 +98,7 @@ function handlePing(event) {
     const newListEntry = document.createElement('div');
     newListEntry.className = 'listEntry';
 
-    if (!registeredRemotes.length) {
+    if (!registeredHubRemotes.length && !registeredRemotes.length) {
       interactiveContainer.textContent = '';
     }
 
@@ -101,7 +117,14 @@ function handlePing(event) {
     registeredRemotes.push(newReg);
     console.info('PING>> new registration ', newReg);
 
-    // TODO: broadcast to all hub instances
+    hubsChannel.postMessage({
+      type: 'hub-ping',
+      origin: newReg.origin,
+      entries: [{
+        frameId: newReg.frameId,
+        services: newReg.services
+      }]
+    });
 
     return { type: 'pong', frameId: newReg.frameId };
   }
@@ -111,13 +134,14 @@ function handleListServices() {
   return registeredRemotes.map(r => ({
     ...r,
     source: undefined
-  }));
+  })).concat(registeredHubRemotes.map(r => ({
+    ...r,
+    source: undefined
+  })));
 }
 
 /**
  * @type {{
- *  from: typeof registeredRemotes[number],
- *  to: typeof registeredRemotes[number],
  *  requestId: string,
  *  startTimestamp: string,
  *  resolve: (value: any) => void,
@@ -126,31 +150,87 @@ function handleListServices() {
  */
 var outstandingServiceCalls = [];
 
-/** @param {*} _ */
-function handleCallService({ frameId, requestId, targetFrameId, service, ...rest }) {
+/** @param {MessageEvent} event */
+async function handleCallService(event) {
+  const { frameId, requestId, targetFrameId, service, ignoreQuietly, ...rest } = event.data;
+  const fromFrame = registeredRemotes.find(r => r.source === event.source);
+  if (!fromFrame) {
+    console.info('CALL-SERVICE>> message.source is not registered', event);
+    throw new Error('Source not registered');
+  }
+
   const existingCall = outstandingServiceCalls.find(c => c.requestId === requestId);
   if (existingCall) {
     console.info('CALL-SERVICE>> duplicate requestId', requestId);
     throw new Error('Duplicate requestId ' + requestId);
   }
 
-  const remoteFrom = registeredRemotes.find(r => r.frameId === frameId);
-  const remoteTo = registeredRemotes.find(r => r.frameId === targetFrameId);
-
-  if (!remoteFrom) {
-    console.info('CALL-SERVICE>> unknown from frameId', frameId);
-    throw new Error('Unknown frameId ' + frameId);
+  let result;
+  try {
+    result = await makeCall({ frameId, requestId, targetFrameId, service, ignoreQuietly, ...rest });
+  } catch (error) {
+    fromFrame.source.postMessage(
+      {
+        type: 'call-service-reply',
+        requestId,
+        success: false,
+        error: /** @type {*} */(error)?.stack || /** @type {*} */(error)?.message || String(error)
+      },
+      { targetOrigin: fromFrame.origin }
+    );
+    return;
   }
 
-  if (!remoteTo) {
+  fromFrame.source.postMessage(
+    {
+      type: 'call-service-reply',
+      requestId,
+      success: true,
+      result
+    },
+    { targetOrigin: fromFrame.origin }
+  );
+}
+
+
+/**
+ * @param {{
+ *  requestId: string,
+ *  targetFrameId: string,
+ *  service: string,
+ *  ignoreQuietly: boolean
+ * }} _ */
+function makeCall({ requestId, targetFrameId, service, ignoreQuietly, ...rest }) {
+  const remoteTo = registeredRemotes.find(r => r.frameId === targetFrameId);
+  const remoteHubTo = !remoteTo && registeredHubRemotes.find(r => r.frameId === targetFrameId);
+
+  if (remoteTo) {
+    remoteTo.source.postMessage({
+      type: 'call-service',
+      requestId,
+      service,
+      ...rest
+    },
+      { targetOrigin: remoteTo.origin });
+  } else if (remoteHubTo) {
+    hubsChannel.postMessage({
+      type: 'hub-call-service',
+      hubId,
+      frameId: remoteHubTo.frameId,
+      requestId,
+      targetFrameId,
+      service,
+      ...rest
+    });
+  } else {
+    if (ignoreQuietly) return;
+
     console.info('CALL-SERVICE>> unknown to frameId', targetFrameId);
     throw new Error('Unknown targetFrameId ' + targetFrameId);
   }
 
   const responsePromise = new Promise((resolve, reject) => {
     outstandingServiceCalls.push({
-      from: remoteFrom,
-      to: remoteTo,
       requestId,
       startTimestamp: new Date().toISOString(),
       resolve,
@@ -158,19 +238,11 @@ function handleCallService({ frameId, requestId, targetFrameId, service, ...rest
     });
   });
 
-  remoteTo.source.postMessage({
-    type: 'call-service',
-    frameId: remoteTo.frameId,
-    requestId,
-    service,
-    ...rest
-  }, { targetOrigin: remoteTo.origin });
-
   return responsePromise;
 }
 
 /** @param {*} _ */
-function handleCallServiceReply({ frameId, requestId, success, result, error }) {
+function handleCallServiceReply({ requestId, success, result, error }) {
   const existingCallIndex = outstandingServiceCalls.findIndex(c => c.requestId === requestId);
   if (existingCallIndex === -1) {
     console.info('CALL-SERVICE-REPLY>> unknown requestId', requestId);
@@ -178,10 +250,6 @@ function handleCallServiceReply({ frameId, requestId, success, result, error }) 
   }
 
   const existingCall = outstandingServiceCalls[existingCallIndex];
-  if (existingCall.to.frameId !== frameId) {
-    console.info('CALL-SERVICE-REPLY>> frameId does not match the call', { expected: existingCall.to.frameId, got: frameId });
-    throw new Error('frameId does not match the call');
-  }
 
   outstandingServiceCalls.splice(existingCallIndex, 1);
 
@@ -210,8 +278,14 @@ function initInteractivity() {
 }
 
 function initBroadcastChannel() {
+  hubId = 'h' + Math.random().toString(36).replace(/[^a-z]+/ig, '').slice(1) + ':' + Date.now().toString(36).slice(-5);
   hubsChannel = new BroadcastChannel("my_channel");
   hubsChannel.addEventListener("message", handleBroadcastMessage);
+
+  hubsChannel.postMessage({
+    type: 'hub-start',
+    hubId
+  });
 
   /** @param {MessageEvent} event */
   function handleBroadcastMessage(event) {
@@ -220,6 +294,8 @@ function initBroadcastChannel() {
       return;
     }
 
+    if (event.data.hubId === hubId) return;
+
     switch (event.data?.type) {
       case 'hub-ping':
         return handleHubPing(event);
@@ -227,22 +303,111 @@ function initBroadcastChannel() {
       case 'hub-start':
         return handleHubStart(event);
 
-      case 'hub-list-services':
-        return handleHubListServices(event);
+      case 'hub-call-service':
+        return handleHubCallService(event.data);
+
+      case 'hub-call-service-reply':
+        return handleHubCallServiceReply(event.data);
     }
   }
 
   /** @param {MessageEvent} event */
   function handleHubPing(event) {
+    const { hubId, origin, entries } = event.data;
+
+    for (const { frameId, services } of entries || []) {
+      const alreadyRegistered = registeredHubRemotes.find(r => r.origin === origin && r.frameId === frameId);
+      if (alreadyRegistered) {
+        console.info('HUB-PING>> already registered ', alreadyRegistered, alreadyRegistered.services, services);
+
+        if (services)
+          alreadyRegistered.services = services;
+      } else {
+        const newListEntry = document.createElement('div');
+        newListEntry.className = 'listEntry hubEntry';
+
+        if (!registeredHubRemotes.length && !registeredRemotes.length) {
+          interactiveContainer.textContent = '';
+        }
+
+        interactiveContainer.appendChild(newListEntry);
+
+        const newHubReg = {
+          hubId,
+          frameId,
+          origin,
+          services,
+          listEntry: newListEntry
+        };
+
+        newListEntry.textContent = newHubReg.origin + ' #' + newHubReg.frameId + ' (hub)';
+
+        registeredHubRemotes.push(newHubReg);
+        console.info('HUB-PING>> new registration ', newHubReg, services);
+      }
+    }
   }
 
   /** @param {MessageEvent} event */
   function handleHubStart(event) {
+    return registeredRemotes.map(r => ({
+      ...r,
+      hubId,
+      source: undefined
+    }));
   }
 
-  /** @param {MessageEvent} event */
-  function handleHubListServices(event) {
+  /** @param {*} _ */
+  async function handleHubCallService({ hubId: fromHubId, frameId, requestId, targetFrameId, service, ...rest }) {
+    let response;
+    try {
+      response = await makeCall({
+        frameId,
+        requestId,
+        targetFrameId,
+        service,
+        ignoreQuietly: true,
+        ...rest
+      });
+
+      if (!response) return;
+    } catch (error) {
+      hubsChannel.postMessage({
+        type: 'hub-call-service-reply',
+        hubId: fromHubId,
+        frameId,
+        requestId,
+        error: /** @type {*} */(error)?.stack || /** @type {*} */(error)?.message || String(error)
+      });
+    }
+
+    if (response) {
+      hubsChannel.postMessage({
+        type: 'hub-call-service-reply',
+        hubId: fromHubId,
+        frameId,
+        requestId,
+        ...response
+      });
+    }
   }
+
+  /** @param {*} _ */
+  function handleHubCallServiceReply({ requestId, success, result, error }) {
+    const existingCallIndex = outstandingServiceCalls.findIndex(c => c.requestId === requestId);
+    const existingCall = outstandingServiceCalls[existingCallIndex];
+    if (!existingCall) {
+      return; // this is a response to a different hub
+    }
+
+    if (success) {
+      existingCall.resolve(result);
+    } else {
+      existingCall.reject(error);
+    }
+  }
+
 }
+
 updateBookmarkletLink();
 initInteractivity();
