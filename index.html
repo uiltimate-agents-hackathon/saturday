@@ -9,11 +9,19 @@
 <body>
   <h1>Ultimate AI Hackathon London - Saturday!</h1>
 
+  <blockquote>
+    <a id="bookmarkletLink">&lt; bookmarklet &gt;</a>
+  </blockquote>
+
   posted messages will appear in an alert box
   <div id="messsageLog">
 
   </div>
+<script src="bookmarklet.js"></script>
 <script>
+[document.querySelector('#bookmarkletLink')].forEach(el => {
+  el.href = 'javascript:(bookmarklet=' + bookmarklet + ', console.log("bookmarklet " + bookmarklet()))';
+});
 window.addEventListener('message', (event) => {
   if (event.data.type === 'ping') {
     event.source.postMessage({ type: 'pong', text: 'pong!' }, '*');

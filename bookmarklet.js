@@ -1,7 +1,7 @@
-(async () => {
+async function bookmarklet () {
   const uaih = 'https://uaih.london/';
   console.log('opening...');
-  const popup = window.open(uaih, '_blank', 'width=600,height=600');
+  const popup = window.open(uaih, 'UAIH');
   await new Promise((resolve) => {
     const keepPinging = setInterval(() => {
       console.log('pinging...');
@@ -24,6 +24,8 @@
     message: 'Hello from ' + window.location + ' at ' + new Date()
   }, uaih);
 
-  alert('Message sent to ' + uaih);
+  await new Promise(resolve => setTimeout(resolve, 500));
 
-})()
+  alert('Message sent to popup!');
+
+}
