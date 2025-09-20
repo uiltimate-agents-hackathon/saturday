@@ -74,7 +74,7 @@ function handlePing(event) {
     if (event.data.services)
       alreadyRegistered.services = event.data.services;
 
-    event.source.postMessage({ type: 'pong', frameId: alreadyRegistered.frameId }, { targetOrigin: event.origin });
+    return {type: 'pong', frameId: alreadyRegistered.frameId };
   } else {
     const newListEntry = document.createElement('div');
     newListEntry.className = 'listEntry';
@@ -93,7 +93,7 @@ function handlePing(event) {
     registeredRemotes.push(newReg);
     console.info('PING>> new registration ', newReg);
 
-    event.source.postMessage({ type: 'pong', frameId: newReg.frameId }, { targetOrigin: event.origin });
+    return { type: 'pong', frameId: newReg.frameId };
   }
 }
 
