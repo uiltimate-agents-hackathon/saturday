@@ -17,7 +17,7 @@ var interactiveContainer;
 /** @param {MessageEvent} event */
 async function handleMessage(event) {
   const type = event.data?.type;
-  if (type !== 'string') return;
+  if (typeof type !== 'string') return;
 
   const checkedEvent = /** @type {CheckedMessageEvent} */ (event);
 
