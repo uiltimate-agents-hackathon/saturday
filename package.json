@@ -1,0 +1,21 @@
+{
+  "name": "saturday",
+  "version": "1.0.0",
+  "description": "**Break the walls between browser tabs.**",
+  "main": "index.js",
+  "scripts": {
+    "build": "echo this is good",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/uiltimate-agents-hackathon/saturday.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/uiltimate-agents-hackathon/saturday/issues"
+  },
+  "homepage": "https://github.com/uiltimate-agents-hackathon/saturday#readme"
+}
