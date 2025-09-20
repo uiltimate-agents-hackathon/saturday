@@ -15,6 +15,11 @@
   </div>
 <script>
 window.addEventListener('message', (event) => {
+  if (event.data.type === 'ping') {
+    event.source.postMessage({ type: 'pong', text: 'pong!' }, '*');
+    return;
+  }
+
   const msg = document.createElement('div');
   msg.style.cssText = 'border: 1px solid black; border-radius: 0.5em; margin: 5px; padding: 5px;';
   msg.textContent = JSON.stringify(event.data);

@@ -1,12 +1,22 @@
 (async () => {
   const uaih = 'https://uaih.london/';
+  console.log('opening...');
   const popup = window.open(uaih, '_blank', 'width=600,height=600');
   await new Promise((resolve) => {
-    popup.onload = () => {
-      setTimeout(() => {
+    const keepPinging = setInterval(() => {
+      console.log('pinging...');
+      popup.postMessage({ type: 'ping' }, uaih);
+    }, 100);
+
+    window.addEventListener('message', handleMessage);
+    function handleMessage(event) {
+      if (event.data.type === 'pong') {
+        console.log('received pong', event.data);
+        clearInterval(keepPinging);
+        window.removeEventListener('message', handleMessage);
         resolve();
-      }, 500);
-    };
+      }
+    }
   });
 
   popup.postMessage({
